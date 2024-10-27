@@ -8,6 +8,7 @@ import {
   GetResponseType as AuthorizationsGetResponse,
   SetResponseType as AuthorizationsSetResponse,
 } from "@swiftprotocol/api/routes/notify/auth/types";
+import { Crypto as PFCrypto } from "@peculiar/webcrypto";
 
 const emailRegex = /^[\w.-]+@[a-zA-Z\d.-]+\.[a-zA-Z]{2,}$/;
 
@@ -75,6 +76,49 @@ export default function Home() {
 
     const api = process.env.NEXT_PUBLIC_SWIFT_API!;
     const appId = parseInt(process.env.NEXT_PUBLIC_SWIFT_APP_ID!);
+    const swiftKey = process.env.NEXT_PUBLIC_SWIFT_PUBLIC_KEY!;
+
+    const recipientPublicKeyBuffer = Buffer.from(swiftKey, "hex");
+    const recipientPublicKey = await crypto.subtle.importKey(
+      "spki",
+      recipientPublicKeyBuffer,
+      {
+        name: "RSA-OAEP",
+        hash: "SHA-256",
+      },
+      true,
+      ["encrypt"]
+    );
+
+    const plainTextEncoded = new TextEncoder().encode(email);
+    const encryptedData = await crypto.subtle.encrypt(
+      { name: "RSA-OAEP" },
+      recipientPublicKey,
+      plainTextEncoded
+    );
+
+    const cipherText = Buffer.from(encryptedData).toString("hex");
+
+    console.log(cipherText);
+
+    const storeEmailResponse = await fetch(api + `/data/set`, {
+      method: "POST",
+      body: JSON.stringify({
+        signature: walletSignature,
+        key: "email",
+        cipherText,
+      }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (storeEmailResponse.status !== 200) {
+      alert(
+        "We were unable to encrypt/store your email address. Please try again later."
+      );
+      throw new Error("Failed to store email");
+    }
 
     const authorizationsResponse = await fetch(api + `/notify/auth/get`, {
       method: "POST",
