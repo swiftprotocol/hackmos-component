@@ -120,41 +120,11 @@ export default function Home() {
       throw new Error("Failed to store email");
     }
 
-    const authorizationsResponse = await fetch(api + `/notify/auth/get`, {
-      method: "POST",
-      body: JSON.stringify({
-        address: address,
-      }),
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    let authorizations: AuthorizationsGetResponse["authorizations"];
-
-    if (authorizationsResponse.status !== 200) {
-      authorizations = [];
-    } else {
-      const auth: AuthorizationsGetResponse =
-        await authorizationsResponse.json();
-      authorizations = auth.authorizations;
-    }
-
-    const authIndex = authorizations.findIndex((auth) => auth.app === appId);
-    if (authIndex >= 0) {
-      authorizations[authIndex].methods = ["email"];
-    } else {
-      authorizations.push({
-        app: appId,
-        methods: ["email"],
-      });
-    }
-
     const setAuthorizationsResponse = await fetch(api + `/notify/auth/set`, {
       method: "POST",
       body: JSON.stringify({
         signature: walletSignature,
-        authorizations: authorizations,
+        authorization: { app: appId, methods: ["email"] },
       }),
       headers: {
         "Content-Type": "application/json",
